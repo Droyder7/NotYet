@@ -52,7 +52,6 @@ model Signal {
   title     String
   body      String
   context   String?
-  source    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
