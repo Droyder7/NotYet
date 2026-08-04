@@ -29,18 +29,19 @@ States: `INBOX → ACTIVE → WAITING → DORMANT → CLOSED`
 
 ## Stack
 
-Next.js 15 (App Router) · TypeScript · Tailwind CSS · Prisma + SQLite · React Flow (graph view) · Server Actions for mutations · pnpm
+Next.js 15.5 (App Router) · TypeScript · Tailwind CSS · Prisma + PostgreSQL · React Flow (graph view) · Server Actions for mutations · pnpm
 
-Local-only, single user, no auth.
+Single user, no auth. The app is deployable to Vercel with a hosted PostgreSQL database.
 
 ## Getting started
 
 ```bash
+cp .env.example .env         # fill DATABASE_URL and DIRECT_URL
 pnpm install
-pnpm approve-builds --all   # allow prisma/tsx postinstall scripts
-pnpm db:push                # create SQLite schema (prisma/dev.db)
-pnpm db:seed                # load the demo dataset (optional but recommended)
-pnpm dev                    # http://localhost:3000
+pnpm approve-builds --all    # allow prisma/tsx postinstall scripts
+pnpm db:push                 # create the PostgreSQL schema
+pnpm db:seed                 # load the demo dataset (optional but recommended)
+pnpm dev                     # http://localhost:3000
 ```
 
 ### Useful scripts
@@ -48,8 +49,10 @@ pnpm dev                    # http://localhost:3000
 |---|---|
 | `pnpm dev` | Dev server |
 | `pnpm build` / `pnpm start` | Production build / serve |
-| `pnpm db:push` | Sync schema to SQLite |
-| `pnpm db:seed` | Load demo data (idempotent-ish: clears first) |
+| `pnpm db:push` | Sync schema to the configured PostgreSQL database |
+| `pnpm db:migrate` | Create and apply a development migration |
+| `pnpm db:deploy` | Apply committed migrations in production |
+| `pnpm db:seed` | Load demo data (destructive: clears first) |
 | `pnpm db:studio` | Prisma Studio DB browser |
 | `pnpm lint` | ESLint |
 
@@ -63,6 +66,22 @@ pnpm dev                    # http://localhost:3000
 | `/review/weekly` | Guided weekly review (states, stale items) |
 | `/review/monthly` | Guided monthly review (closed/archived, patterns) |
 
+## Vercel deployment
+
+1. Create a persistent PostgreSQL database, such as Vercel Postgres.
+2. Configure these Vercel environment variables for Production and Preview:
+   - `DATABASE_URL`: pooled PostgreSQL connection string used by the application
+   - `DIRECT_URL`: direct PostgreSQL connection string used by Prisma schema operations
+   - `DATABASE_SSL`: leave as `true` for hosted PostgreSQL; set to `false` only for local PostgreSQL without SSL
+3. Deploy the repository. `vercel.json` runs `pnpm install --frozen-lockfile`, `prisma generate`, and `next build`.
+4. Apply the schema to the production database before opening the app:
+
+```bash
+DATABASE_URL="<production pooled URL>" DIRECT_URL="<production direct URL>" pnpm db:push
+```
+
+Do not run `pnpm db:seed` against a database containing real data; seeding is destructive.
+
 ## Demo data
 
 The seed tells six stories across the pipeline: a full signal→project chain (voice-capture app), a career exploration in progress, a cheap rejection, a waiting experiment, an unprocessed inbox signal, and direct-entry candidates. Load it from the dashboard banner or `pnpm db:seed`; clear it from the same banner.
@@ -71,6 +90,8 @@ The seed tells six stories across the pipeline: a full signal→project chain (v
 
 ```
 prisma/schema.prisma   # 6 entity models + Transition/Relationship lookup tables
+vercel.json            # Vercel install/build configuration
+.env.example           # Required database environment variables
 src/
   app/                 # App Router pages (list/detail/new per entity, graph, reviews)
   components/          # Forms, state buttons, graph, demo banner

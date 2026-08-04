@@ -19,7 +19,7 @@ Status of **NotYet** (a Signal-to-Commitment System app): what's built, what's p
 
 **Demo & tooling**
 - Demo dataset: six stories covering the full chain, cheap rejection, waiting/dormant states, direct entry — via dashboard banner or `pnpm db:seed`
-- Local SQLite + Prisma schema; pnpm scripts for db push/seed/studio
+- Hosted PostgreSQL + Prisma schema; pnpm scripts for db push/migrate/seed/studio
 
 ## 🔜 Planned next (v1 polish — still within spec §18 "Included")
 

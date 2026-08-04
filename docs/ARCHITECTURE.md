@@ -6,7 +6,7 @@ This document describes the architecture implemented in the current codebase. Pr
 
 NotYet is a local-first, single-user decision-support application. It helps one person capture possible opportunities, reduce uncertainty, and decide which opportunities deserve commitment.
 
-The application runs as a Next.js web process and stores all data in a local SQLite database. It has no authentication, remote API, synchronization service, or multi-user boundary.
+The application runs as a Next.js web process and stores data in a hosted PostgreSQL database when deployed. It has no authentication, remote API, synchronization service, or multi-user boundary.
 
 ```text
 Browser
@@ -17,18 +17,18 @@ Next.js application
   |
   | Prisma Client
   v
-SQLite (prisma/dev.db)
+PostgreSQL (DATABASE_URL)
 ```
 
 ## Technology Stack
 
 | Layer | Implementation |
 |---|---|
-| Web framework | Next.js 15 App Router with React 19 |
+| Web framework | Next.js 15.5 App Router with React 19 |
 | Language | TypeScript |
 | UI | Tailwind CSS and local reusable components |
 | Forms | React Hook Form with Zod validation |
-| Persistence | Prisma ORM 6 with SQLite |
+| Persistence | Prisma ORM 6 with PostgreSQL |
 | Graph visualization | React Flow |
 | Mutations | Next.js Server Actions |
 | Package manager | pnpm |
@@ -51,7 +51,7 @@ src/
     demo-actions.ts        UI-facing demo Server Actions
 prisma/
   schema.prisma            Domain schema
-  dev.db                   Local SQLite database
+  schema.prisma            PostgreSQL datasource and domain schema
 scripts/
   seed.ts                  CLI demo seeding entry point
 ```
@@ -91,11 +91,11 @@ The current `/graph` page does not query `Relationship`. It constructs edges fro
 
 ### Integrity Trade-off
 
-SQLite and Prisma enforce the typed parent-child relationships in the core pipeline. They cannot enforce references stored in `Transition` or `Relationship`; application code is responsible for writing valid entity IDs and matching `EntityType` values. Deleting a core entity does not automatically remove polymorphic log records.
+PostgreSQL and Prisma enforce the typed parent-child relationships in the core pipeline. They cannot enforce references stored in `Transition` or `Relationship`; application code is responsible for writing valid entity IDs and matching `EntityType` values. Deleting a core entity does not automatically remove polymorphic log records.
 
 ## Data Access and Mutations
 
-`src/lib/db.ts` exposes one Prisma client and reuses it during development to avoid creating a client on every hot reload.
+`src/lib/db.ts` exposes one Prisma client backed by a `pg` connection pool and `@prisma/adapter-pg`. The client and pool are cached on `globalThis` during development to avoid creating a new connection pool on every hot reload. The runtime requires `DATABASE_URL`; Prisma CLI schema operations also require `DIRECT_URL`.
 
 Each `src/lib/*-actions.ts` module owns operations for one entity:
 
@@ -127,10 +127,24 @@ The demo dataset uses the same Prisma models as normal application data. It can 
 
 Loading demo data clears existing application data first. This is acceptable for the current local demonstration workflow but should be reconsidered before supporting persistent user datasets.
 
+## Deployment
+
+Vercel is the reference deployment target. `vercel.json` installs dependencies with pnpm's frozen lockfile and builds with `prisma generate && next build`, ensuring Prisma Client is generated before Next.js compiles.
+
+Required environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Pooled PostgreSQL connection used by the Next.js runtime |
+| `DIRECT_URL` | Direct PostgreSQL connection used by Prisma CLI schema operations |
+| `DATABASE_SSL` | Optional; `false` disables SSL for local PostgreSQL only |
+
+The application assumes the schema has already been applied. Production deployments should not run destructive seed data or implicit schema synchronization. Use migration deploys once migration files are introduced; use `prisma db push` only for early, disposable environments.
+
 ## Runtime and Deployment Assumptions
 
 - One trusted local user
-- One SQLite database on the same machine as the Next.js process
+- One hosted PostgreSQL database per deployed environment
 - No concurrent multi-user editing
 - No authentication or authorization boundary
 - No cloud backup, synchronization, or migration automation
@@ -143,7 +157,7 @@ These assumptions keep v1 small. Authentication, shared deployment, synchronizat
 - WIP limits are currently presented by the UI, not enforced as database invariants.
 - Polymorphic transition and relationship references are application-enforced.
 - Core entities are separate tables rather than a shared entity supertype; generic features must account for all six models.
-- SQLite is appropriate for local use but not the intended backend for multi-user deployment.
+- PostgreSQL is configured through pooled and direct URLs so Prisma runtime connections and CLI schema operations use the appropriate endpoints.
 - Server Actions couple mutations to the Next.js application, which is deliberate while no external API clients exist.
 
 ## Change Guidelines
