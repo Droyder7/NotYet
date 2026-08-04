@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ─── Enums ───
+
+enum EntityType {
+  SIGNAL
+  INTENT
+  EXPLORATION
+  EXPERIMENT
+  PROJECT_CANDIDATE
+  ACTIVE_PROJECT
+}
+
+enum AttentionState {
+  INBOX
+  ACTIVE
+  WAITING
+  DORMANT
+  CLOSED
+}
+
+enum WorthyReadyNow {
+  UNASSESSED
+  YES
+  NO
+}
+
+enum FinalDecision {
+  CONTINUE
+  CHANGE
+  STOP
+  HOLD
+}
+
+enum ProjectSlot {
+  MAJOR
+  MINOR
+}
+
+// ─── Core Entities ───
+
+model Signal {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  context   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  state AttentionState @default(INBOX)
+
+  intents      Intent[]
+  explorations Exploration[]
+}
+
+model Intent {
+  id             String   @id @default(cuid())
+  title          String
+  approach       String
+  expectedChange String
+  assumption     String
+  signalId       String
+  signal         Signal   @relation(fields: [signalId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  state AttentionState @default(INBOX)
+
+  explorations Exploration[]
+  experiments  Experiment[]
+}
+
+model Exploration {
+  id                String   @id @default(cuid())
+  title             String
+  unclearWhat       String
+  scope             String
+  budget            String
+  endDate           DateTime
+  stoppingCondition String
+  expectedOutput    String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  state AttentionState @default(INBOX)
+
+  signalId   String?
+  signal     Signal? @relation(fields: [signalId], references: [id])
+  intentId   String?
+  intent     Intent? @relation(fields: [intentId], references: [id])
+  experiments Experiment[]
+}
+
+model Experiment {
+  id                 String        @id @default(cuid())
+  title              String
+  decisionGoal       String
+  nextCommitment     String
+  criticalAssumption String
+  testMethod         String
+  observableEvidence String
+  budget             String
+  decisionDate       DateTime
+  finalDecision      FinalDecision?
+  finalReasoning     String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  state AttentionState @default(INBOX)
+
+  intentId          String?
+  intent            Intent?           @relation(fields: [intentId], references: [id])
+  explorationId     String?
+  exploration       Exploration?      @relation(fields: [explorationId], references: [id])
+  projectCandidates ProjectCandidate[]
+}
+
+model ProjectCandidate {
+  id                 String   @id @default(cuid())
+  title              String
+  proposedOutcome    String
+  evidenceOfValue    String
+  primaryAlignment   String
+  acceptanceCriteria String
+  constraints        String
+  roughEstimate      String
+
+  worthy       WorthyReadyNow @default(UNASSESSED)
+  ready        WorthyReadyNow @default(UNASSESSED)
+  now          WorthyReadyNow @default(UNASSESSED)
+  worthyReason String?
+  readyReason  String?
+  nowReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  state AttentionState @default(INBOX)
+
+  experimentId  String?
+  experiment    Experiment?    @relation(fields: [experimentId], references: [id])
+  activeProject ActiveProject?
+}
+
+model ActiveProject {
+  id                 String      @id @default(cuid())
+  title              String
+  desiredOutcome     String
+  acceptanceCriteria String
+  primaryAlignment   String
+  deadline           DateTime
+  realisticLeadTime  String
+  currentMilestone   String
+  nextConcreteAction String
+  majorDependency    String?
+  projectSlot        ProjectSlot
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  state AttentionState @default(ACTIVE)
+
+  projectCandidateId String?           @unique
+  projectCandidate   ProjectCandidate? @relation(fields: [projectCandidateId], references: [id])
+}
+
+// ─── Supporting Models ───
+// Plain log tables: entity IDs and types are stored as data, with no
+// cross-table foreign keys into the six entity tables. History is fetched
+// with direct queries (e.g. where fromEntityId = <id> or toEntityId = <id>)
+// instead of relation includes. This keeps the graph flexible — a transition
+// may point at entities of any type without schema changes.
+
+model Transition {
+  id           String         @id @default(cuid())
+  fromEntityId String?
+  toEntityId   String?
+  fromType     EntityType?
+  toType       EntityType?
+  fromState    AttentionState?
+  toState      AttentionState?
+  reason       String
+  evidence     String?
+  date         DateTime       @default(now())
+}
+
+model Relationship {
+  id       String     @id @default(cuid())
+  fromId   String
+  toId     String
+  fromType EntityType
+  toType   EntityType
+  role     String
+}
