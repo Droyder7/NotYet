@@ -15,8 +15,8 @@ import {
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "S2C System",
-  description: "Signal-to-Commitment personal opportunity system",
+  title: "NotYet",
+  description: "NotYet — a signal-to-commitment system: capture cheaply, commit slowly",
 };
 
 const NAV: Array<
@@ -48,7 +48,7 @@ export default function RootLayout({
           <aside className="flex w-56 flex-col border-r border-gray-200 bg-gray-50/50">
             <div className="flex h-14 items-center border-b border-gray-200 px-4">
               <Link href="/" className="text-sm font-semibold text-gray-900">
-                S2C System
+                NotYet
               </Link>
             </div>
             <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">

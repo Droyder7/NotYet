@@ -52,7 +52,7 @@ export default async function Dashboard() {
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Your signal-to-commitment system at a glance
+          NotYet — attention is finite. Capture cheaply, commit slowly.
         </p>
       </div>
 

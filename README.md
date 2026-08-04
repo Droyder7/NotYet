@@ -1,6 +1,8 @@
-# Signal-to-Commitment System (S2C)
+# NotYet
 
-A local-first web app implementing the Signal-to-Commitment System: a personal pipeline that turns raw signals (hunches, frustrations, ideas) into bounded intents, explorations, and experiments — and only then into active projects. Based on the spec in [`system-v1.md`](system-v1.md).
+A local-first web app implementing the Signal-to-Commitment System: a personal pipeline that turns raw signals (hunches, frustrations, ideas) into bounded intents, explorations, and experiments — and only then into active projects. Based on the spec in [`docs/SYSTEM.md`](docs/SYSTEM.md).
+
+The name is the operating rule (spec §3.4): **the default is "not now."** Not everything deserves your attention today — NotYet helps you hold signals cheaply until evidence says otherwise.
 
 The core idea: **attention is finite, so the pipeline enforces limits.** Every entity has an attention state, cheap rejection is a first-class outcome, and nothing becomes a project without passing a Worthy/Ready/Now assessment.
 
@@ -11,7 +13,7 @@ Signal → Intent → Exploration → Experiment → ProjectCandidate → Active
   (capture)  (approach)  (reduce uncertainty)  (test)  (assess WRN)  (commit)
 ```
 
-Every step is optional and every movement writes a transition record with reason and evidence. Full detail: `system-v1.md`.
+Every step is optional and every movement writes a transition record with reason and evidence. Full detail: [`docs/SYSTEM.md`](docs/SYSTEM.md).
 
 ### The six entities
 | Entity | Question it answers |
@@ -74,8 +76,10 @@ src/
   components/          # Forms, state buttons, graph, demo banner
   lib/                 # *-actions.ts server actions per entity, demo-data.ts, db.ts
 scripts/seed.ts        # CLI seeding
-system-v1.md           # The spec this implements
-PLAN.md                # Build plan / design decisions
+docs/
+  SYSTEM.md            # The source specification
+  ARCHITECTURE.md      # Current system design and constraints
+  ROADMAP.md           # Current features and future direction
 ```
 
 **Schema note:** `Transition` and `Relationship` are plain log tables — entity IDs/types are stored as data with no cross-table foreign keys, and history is fetched with direct queries. This keeps the graph flexible (and is why `db:push` constraints can't block seeding).

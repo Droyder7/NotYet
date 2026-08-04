@@ -1,6 +1,6 @@
 # Roadmap
 
-Status of the Signal-to-Commitment System app: what's built, what's planned next, and what's possible but unplanned. The authority on scope is `system-v1.md` §18 (Version 1 boundaries).
+Status of **NotYet** (a Signal-to-Commitment System app): what's built, what's planned next, and what's possible but unplanned. The authority on scope is [`SYSTEM.md`](SYSTEM.md) §18 (Version 1 boundaries).
 
 ## ✅ Implemented (current state)
 

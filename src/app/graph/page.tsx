@@ -126,7 +126,7 @@ export default async function GraphPage() {
       <div className="border-b border-gray-200 bg-white px-6 py-4">
         <h1 className="text-2xl font-bold">Relationship Graph</h1>
         <p className="mt-1 text-sm text-gray-500">
-          The full signal-to-commitment graph. Drag to pan, scroll to zoom.
+          The full NotYet graph — every entity and how it connects. Drag to pan, scroll to zoom.
         </p>
       </div>
       <GraphView nodes={nodes} edges={edges} />
