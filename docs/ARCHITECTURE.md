@@ -50,8 +50,8 @@ src/
     demo-data.ts           Demo dataset and database reset logic
     demo-actions.ts        UI-facing demo Server Actions
 prisma/
-  schema.prisma            Domain schema
   schema.prisma            PostgreSQL datasource and domain schema
+  migrations/              Versioned SQL migrations + migration_lock.toml
 scripts/
   seed.ts                  CLI demo seeding entry point
 ```
@@ -129,25 +129,45 @@ Loading demo data clears existing application data first. This is acceptable for
 
 ## Deployment
 
-Vercel is the reference deployment target. `vercel.json` installs dependencies with pnpm's frozen lockfile and builds with `prisma generate && next build`, ensuring Prisma Client is generated before Next.js compiles.
+Vercel is the reference deployment target. `vercel.json` installs dependencies with pnpm's frozen lockfile and builds with `prisma migrate deploy && prisma generate && next build`. Pending committed migrations are applied to the target environment's database **before** Next.js compiles, so a failed migration fails the deploy and the previous build stays live.
 
-Required environment variables:
+### Environments and databases
+
+Schema and data are isolated per environment using two Neon databases:
+
+| Database | Connected Vercel environments | Purpose |
+|---|---|---|
+| `notyet-db` | Production | Live data |
+| `notyet-db-dev` | Preview, Development | Demo data and schema-change testing; safe to reset |
+
+Local `.env` targets the dev database, so `pnpm db:migrate` never touches production.
+
+### Environment variables
 
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | Pooled PostgreSQL connection used by the Next.js runtime |
-| `DIRECT_URL` | Direct PostgreSQL connection used by Prisma CLI schema operations |
-| `DATABASE_SSL` | Optional; `false` disables SSL for local PostgreSQL only |
+| `DIRECT_URL` | Direct (unpooled) connection used by Prisma CLI operations and `migrate deploy` |
+| `DATABASE_SSL` | Optional; `false` disables SSL only for a local PostgreSQL without SSL |
 
-The application assumes the schema has already been applied. Production deployments should not run destructive seed data or implicit schema synchronization. Use migration deploys once migration files are introduced; use `prisma db push` only for early, disposable environments.
+### Migration workflow
+
+Schema changes flow through committed migrations, not `prisma db push`:
+
+1. Edit `prisma/schema.prisma`.
+2. `pnpm db:migrate --name <change>` — generates a migration and applies it to the dev DB, validated against a shadow database.
+3. Commit `prisma/migrations/<ts>_<name>/migration.sql`.
+4. Deploy — `prisma migrate deploy` applies pending migrations to that environment's database.
+
+`db:push` mutates the schema without a migration record and is not used in the normal workflow; it is only acceptable for a truly disposable scratch database.
 
 ## Runtime and Deployment Assumptions
 
 - One trusted local user
-- One hosted PostgreSQL database per deployed environment
+- Two hosted databases: production (prod) and shared dev/preview
 - No concurrent multi-user editing
 - No authentication or authorization boundary
-- No cloud backup, synchronization, or migration automation
+- Schema migrations are automated via committed files + `prisma migrate deploy` at build
 - Active project execution is expected to move to an external task-management system
 
 These assumptions keep v1 small. Authentication, shared deployment, synchronization, or concurrent writers would require explicit changes to storage, authorization, conflict handling, and operational design.

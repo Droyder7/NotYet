@@ -36,10 +36,10 @@ Single user, no auth. The app is deployable to Vercel with a hosted PostgreSQL d
 ## Getting started
 
 ```bash
-cp .env.example .env         # fill DATABASE_URL and DIRECT_URL
+cp .env.example .env         # fill DATABASE_URL and DIRECT_URL (point at your dev DB)
 pnpm install
 pnpm approve-builds --all    # allow prisma/tsx postinstall scripts
-pnpm db:push                 # create the PostgreSQL schema
+pnpm db:migrate              # apply committed migrations to the dev database
 pnpm db:seed                 # load the demo dataset (optional but recommended)
 pnpm dev                     # http://localhost:3000
 ```
@@ -48,13 +48,24 @@ pnpm dev                     # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `pnpm dev` | Dev server |
-| `pnpm build` / `pnpm start` | Production build / serve |
-| `pnpm db:push` | Sync schema to the configured PostgreSQL database |
-| `pnpm db:migrate` | Create and apply a development migration |
-| `pnpm db:deploy` | Apply committed migrations in production |
+| `pnpm build` / `pnpm start` | Production build / serve (build runs `prisma migrate deploy`) |
+| `pnpm db:migrate` | Create + apply a migration against the dev DB (`prisma migrate dev`) |
+| `pnpm db:deploy` | Apply committed migrations to the DB in `.env` (`prisma migrate deploy`) |
+| `pnpm db:status` | Show applied/pending migration state |
 | `pnpm db:seed` | Load demo data (destructive: clears first) |
 | `pnpm db:studio` | Prisma Studio DB browser |
 | `pnpm lint` | ESLint |
+
+### Schema workflow
+
+Schema changes flow through **migrations**, not `db push`:
+
+1. Edit `prisma/schema.prisma`.
+2. `pnpm db:migrate --name describe_change` — generates a migration and applies it to the **dev** DB (validated against a shadow database).
+3. Commit the new folder under `prisma/migrations/`.
+4. Deploy — the build runs `prisma migrate deploy`, which applies pending migrations to that environment's database.
+
+Never use `db:push` on a database you care about; it mutates the schema without a migration record and breaks history.
 
 ## App map
 
@@ -68,19 +79,21 @@ pnpm dev                     # http://localhost:3000
 
 ## Vercel deployment
 
-1. Create a persistent PostgreSQL database, such as Vercel Postgres.
-2. Configure these Vercel environment variables for Production and Preview:
-   - `DATABASE_URL`: pooled PostgreSQL connection string used by the application
-   - `DIRECT_URL`: direct PostgreSQL connection string used by Prisma schema operations
-   - `DATABASE_SSL`: leave as `true` for hosted PostgreSQL; set to `false` only for local PostgreSQL without SSL
-3. Deploy the repository. `vercel.json` runs `pnpm install --frozen-lockfile`, `prisma generate`, and `next build`.
-4. Apply the schema to the production database before opening the app:
+The project uses **two Neon databases** to isolate environments:
 
-```bash
-DATABASE_URL="<production pooled URL>" DIRECT_URL="<production direct URL>" pnpm db:push
-```
+| Database | Vercel environments | Purpose |
+|---|---|---|
+| `notyet-db` | **Production** | Live data |
+| `notyet-db-dev` | **Preview, Development** | Schema testing + demo data, safe to reset |
 
-Do not run `pnpm db:seed` against a database containing real data; seeding is destructive.
+Local `.env` points at the dev database (`DATABASE_URL` pooled, `DIRECT_URL` unpooled direct connection, `DATABASE_SSL=true`).
+
+### Setup
+1. Provision both databases via the Neon marketplace integration, connecting `notyet-db` to **production** and `notyet-db-dev` to **preview** + **development**. The integration injects `DATABASE_URL`/`DATABASE_URL_UNPOOLED` automatically; set `DIRECT_URL` (the unpooled URL) per environment so Prisma CLI migrations use a direct connection.
+2. Commit migrations to git (see Schema workflow above).
+3. Deploy. `vercel.json` runs `pnpm install --frozen-lockfile` and `prisma migrate deploy && prisma generate && next build` — pending migrations apply to that environment's database **before** the app builds.
+
+Do not run `pnpm db:seed` against the production database; seeding is destructive and loads demo content.
 
 ## Demo data
 
@@ -103,4 +116,4 @@ docs/
   ROADMAP.md           # Current features and future direction
 ```
 
-**Schema note:** `Transition` and `Relationship` are plain log tables — entity IDs/types are stored as data with no cross-table foreign keys, and history is fetched with direct queries. This keeps the graph flexible (and is why `db:push` constraints can't block seeding).
+**Schema note:** `Transition` and `Relationship` are plain log tables — entity IDs/types are stored as data with no cross-table foreign keys, and history is fetched with direct queries. This keeps the graph flexible.
